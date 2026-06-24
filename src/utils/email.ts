@@ -1,7 +1,9 @@
 import { Resend } from "resend";
 import { config } from "../config";
 
-const resend = new Resend(config.resendApiKey);
+function getResend(): Resend {
+  return new Resend(config.resendApiKey);
+}
 
 export async function sendMagicLinkEmail(to: string, loginUrl: string): Promise<void> {
   if (!config.resendApiKey) {
@@ -9,7 +11,7 @@ export async function sendMagicLinkEmail(to: string, loginUrl: string): Promise<
     return;
   }
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: config.fromEmail,
     to,
     subject: "Your MedSchedule login link",
@@ -27,7 +29,7 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
     return;
   }
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: config.fromEmail,
     to,
     subject: "Reset your MedSchedule password",
@@ -45,7 +47,7 @@ export async function sendStaffInviteEmail(to: string, inviteUrl: string, facili
     return;
   }
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: config.fromEmail,
     to,
     subject: `You've been invited to join ${facilityName} on MedSchedule`,
