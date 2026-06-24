@@ -115,7 +115,13 @@ router.post("/shifts", requireAuth, requireRole("admin"), async (req, res) => {
   }
 
   const times = startTime && endTime
-    ? { startTime, endTime, durationHours: shiftTimes(type).durationHours }
+    ? (() => {
+        const [sh, sm] = startTime.split(":").map(Number);
+        const [eh, em] = endTime.split(":").map(Number);
+        let endMins = eh * 60 + em;
+        if (endMins <= sh * 60 + sm) endMins += 24 * 60;
+        return { startTime, endTime, durationHours: (endMins - (sh * 60 + sm)) / 60 };
+      })()
     : shiftTimes(type);
 
   const shift = await createShift({

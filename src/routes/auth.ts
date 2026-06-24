@@ -125,15 +125,16 @@ router.post("/signup", signupLimiter, async (req, res) => {
     const existing = await findStaffByEmailAndFacility(email, resolvedFacilityId);
     if (existing) {
       await updateStaffProfile(existing.userId, { firstName, lastName });
+    } else {
+      await createStaffProfile({
+        userId: user.userId,
+        facilityId: resolvedFacilityId,
+        firstName,
+        lastName,
+        email,
+        availability: allDaysAllShifts,
+      });
     }
-    await createStaffProfile({
-      userId: user.userId,
-      facilityId: resolvedFacilityId,
-      firstName,
-      lastName,
-      email,
-      availability: allDaysAllShifts,
-    });
   }
 
   const token = signJwt(user.userId, user.role);

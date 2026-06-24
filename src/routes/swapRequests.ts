@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { createSwapRequest, findSwapById, findSwapsByFacility, respondToSwap } from "../db/requests";
-import { findShiftById } from "../db/shifts";
+import { findShiftById, updateShift } from "../db/shifts";
 import { findStaffById } from "../db/staff";
 import { createNotification } from "../db/notifications";
 import { requireAuth, requireRole } from "../middleware/auth";
@@ -150,6 +150,11 @@ router.patch("/swap-requests/:swapRequestId", requireAuth, requireRole("admin"),
   });
 
   if (status === "approved") {
+    await Promise.all([
+      updateShift(existing.requesterShiftId, { staffId: existing.targetStaffId }),
+      updateShift(existing.targetShiftId, { staffId: existing.requesterId }),
+    ]);
+
     await createNotification({
       notificationId: `ntf_swp_${ts}_tgt`,
       userId: existing.targetStaffId,

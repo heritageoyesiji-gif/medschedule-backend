@@ -187,18 +187,24 @@ router.post("/ai/generate-schedule", requireAuth, requireRole("admin"), async (r
 
   const anthropic = new Anthropic({ apiKey: config.anthropicApiKey });
 
-  const aiResponse = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 8192,
-    tools: [SUBMIT_SCHEDULE_TOOL],
-    tool_choice: { type: "tool", name: "submit_schedule" },
-    messages: [
-      {
-        role: "user",
-        content: buildPrompt(command, month, daysInMonth, staffJson, requirementsText, existingShiftsText),
-      },
-    ],
-  });
+  let aiResponse;
+  try {
+    aiResponse = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 8192,
+      tools: [SUBMIT_SCHEDULE_TOOL],
+      tool_choice: { type: "tool", name: "submit_schedule" },
+      messages: [
+        {
+          role: "user",
+          content: buildPrompt(command, month, daysInMonth, staffJson, requirementsText, existingShiftsText),
+        },
+      ],
+    });
+  } catch {
+    sendError(res, 503, "AI_UNAVAILABLE", "AI service request failed — check ANTHROPIC_API_KEY and try again");
+    return;
+  }
 
   const toolUseBlock = aiResponse.content.find((b) => b.type === "tool_use");
   if (!toolUseBlock || toolUseBlock.type !== "tool_use") {
