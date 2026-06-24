@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  userId       String @id
+  firstName    String
+  lastName     String
+  email        String @unique
+  passwordHash String
+  role         String
+  facilityId   String @default("")
+  status       String @default("active")
+  createdAt    String
+}
+
+model Facility {
+  facilityId   String @id
+  name         String
+  address      String
+  contactEmail String
+  contactPhone String
+  adminUserId  String
+  createdAt    String
+}
+
+model StaffProfile {
+  userId          String @id
+  facilityId      String
+  firstName       String
+  lastName        String
+  email           String
+  roleType        String @default("RN")
+  unit            String @default("")
+  qualifications  Json
+  employmentType  String @default("full-time")
+  availability    Json
+  maxHoursPerWeek Int    @default(40)
+  status          String @default("active")
+}
+
+model Shift {
+  shiftId       String  @id
+  facilityId    String
+  staffId       String
+  date          String
+  type          String
+  unit          String
+  startTime     String
+  endTime       String
+  durationHours Float
+  status        String  @default("confirmed")
+  publishedAt   String?
+  createdAt     String
+}
+
+model AIPreview {
+  id          String @id @default(cuid())
+  facilityId  String
+  month       String
+  generatedAt String
+  shifts      Json
+
+  @@unique([facilityId, month])
+}
+
+model SwapRequest {
+  swapRequestId    String  @id
+  facilityId       String
+  requesterId      String
+  targetStaffId    String
+  requesterShiftId String
+  targetShiftId    String
+  note             String  @default("")
+  status           String  @default("pending")
+  adminNote        String?
+  submittedAt      String
+}
+
+model TimeOffRequest {
+  requestId   String  @id
+  facilityId  String
+  staffId     String
+  startDate   String
+  endDate     String
+  reason      String
+  status      String  @default("pending")
+  adminNote   String?
+  submittedAt String
+}
+
+model Notification {
+  notificationId String  @id
+  userId         String
+  type           String
+  title          String
+  message        String
+  read           Boolean @default(false)
+  createdAt      String
+}
+
+model Announcement {
+  announcementId String @id
+  facilityId     String
+  title          String
+  body           String
+  priority       String @default("normal")
+  createdAt      String
+}
+
+model MagicLinkToken {
+  token     String  @id
+  userId    String
+  expiresAt String
+  used      Boolean @default(false)
+}
+
+model QrLoginToken {
+  token     String  @id
+  userId    String
+  expiresAt String
+  used      Boolean @default(false)
+}
+
+model PasswordResetToken {
+  token     String  @id
+  userId    String
+  expiresAt String
+  used      Boolean @default(false)
+}
+
+model PublishedSchedule {
+  id          String @id @default(cuid())
+  facilityId  String
+  month       String
+  publishedAt String
+
+  @@unique([facilityId, month])
+}
+
+model StaffInvite {
+  token      String  @id
+  facilityId String
+  email      String
+  expiresAt  String
+  used       Boolean @default(false)
+}
+
+model StaffingRequirement {
+  requirementId String @id
+  facilityId    String
+  unit          String
+  shiftType     String
+  requiredRole  String
+  minCount      Int    @default(1)
+
+  @@unique([facilityId, unit, shiftType, requiredRole])
+}
