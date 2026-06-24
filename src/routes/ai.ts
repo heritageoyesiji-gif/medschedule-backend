@@ -201,7 +201,8 @@ router.post("/ai/generate-schedule", requireAuth, requireRole("admin"), async (r
         },
       ],
     });
-  } catch {
+  } catch (err) {
+    console.error("[ai] Anthropic SDK error:", err);
     sendError(res, 503, "AI_UNAVAILABLE", "AI service request failed — check ANTHROPIC_API_KEY and try again");
     return;
   }
