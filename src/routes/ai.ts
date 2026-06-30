@@ -91,11 +91,14 @@ ${existingShiftsText}
 
 RULES — follow all of these strictly:
 1. Only assign a staff member to a shift if their availability list for that weekday includes that shift type.
-2. Day and night shifts are 12 hours. Evening shifts are 8 hours. Respect each staff member's maxHoursPerWeek — do not exceed it across a 7-day window.
-3. Never assign the same staff member to more than one shift on the same date.
+2. Shift durations: day/D12/N12/night = 12 hrs, evening/D8/N8 = 8 hrs. Never assign the same staff member more than one shift per date.
+3. Overtime rules (biweekly pay period = any rolling 14-day window anchored to even ISO weeks):
+   - fulltime-permanent / fulltime-temporary: max 80 hrs per biweekly period before OT
+   - parttime-permanent / parttime-temporary: max 60 hrs per biweekly period before OT
+   - casual: no biweekly OT cap — schedule freely but respect maxHoursPerWeek as a soft limit
 4. Match the unit from the staff member's profile when assigning.
 5. For "Generate" commands: produce a complete schedule satisfying all requirements across the full month.
-6. For "Reduce overtime" commands: remove or redistribute shifts from staff who exceed their maxHoursPerWeek without dropping below requirement minimums.
+6. For "Reduce overtime" commands: remove or redistribute shifts from staff who exceed their biweekly OT threshold without dropping below requirement minimums.
 7. For "Fill" or "gaps" commands: only add missing shifts where requirements are not currently met; do not touch existing assignments.
 8. Report as warnings any requirements you cannot satisfy (e.g., no qualified staff available on a given day).
 

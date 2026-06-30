@@ -1,9 +1,19 @@
 import { v4 as uuidv4 } from "uuid";
 import { prisma } from "./prisma";
 import type { AIPreviewRecord, AIPreviewShift, ShiftRecord } from "./store";
-import type { OvertimeRisk, ShiftType, StaffRoleType } from "../types";
+import type { EmploymentType, OvertimeRisk, ShiftType, StaffRoleType } from "../types";
 import { findStaffByFacility } from "./staff";
 import { findRequirementsByFacility } from "./requirements";
+
+// ─── Biweekly OT thresholds by employment type ───────────────────────────────
+
+const BIWEEKLY_OT_HOURS: Record<EmploymentType, number | null> = {
+  "fulltime-permanent":  80,
+  "fulltime-temporary":  80,
+  "parttime-permanent":  60,
+  "parttime-temporary":  60,
+  "casual":              null, // no fixed biweekly threshold for casual
+};
 
 // ─── Shift times by type ──────────────────────────────────────────────────────
 
@@ -229,34 +239,51 @@ function getMondayDate(dateStr: string): string {
   return monday.toISOString().slice(0, 10);
 }
 
+// Returns the Monday that starts the biweekly pay period containing the given date.
+// Pay periods are anchored to the first Monday of ISO week 1 each year,
+// so weeks pair up as (1,2), (3,4), (5,6), … regardless of month.
+function getBiweeklyPeriodStart(dateStr: string): string {
+  const monday = getMondayDate(dateStr);
+  const d = new Date(monday);
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  const msPerWeek = 7 * 24 * 3600 * 1000;
+  const weekNum = Math.floor((d.getTime() - yearStart.getTime()) / msPerWeek);
+  if (weekNum % 2 === 1) d.setDate(d.getDate() - 7);
+  return d.toISOString().slice(0, 10);
+}
+
 export async function calcOvertimeRisks(facilityId: string, month: string): Promise<OvertimeRisk[]> {
   const [shifts, staffProfiles] = await Promise.all([
     findShiftsByFacilityAndMonth(facilityId, month),
     findStaffByFacility(facilityId),
   ]);
 
-  const weeklyHours: Record<string, Record<string, number>> = {};
+  // Accumulate hours per staff per biweekly period
+  const biweeklyHours: Record<string, Record<string, number>> = {};
 
   for (const shift of shifts) {
-    const weekKey = getMondayDate(shift.date);
-    if (!weeklyHours[shift.staffId]) weeklyHours[shift.staffId] = {};
-    weeklyHours[shift.staffId][weekKey] =
-      (weeklyHours[shift.staffId][weekKey] ?? 0) + shift.durationHours;
+    const periodKey = getBiweeklyPeriodStart(shift.date);
+    if (!biweeklyHours[shift.staffId]) biweeklyHours[shift.staffId] = {};
+    biweeklyHours[shift.staffId][periodKey] =
+      (biweeklyHours[shift.staffId][periodKey] ?? 0) + shift.durationHours;
   }
 
   const risks: OvertimeRisk[] = [];
 
-  for (const [staffId, weeks] of Object.entries(weeklyHours)) {
+  for (const [staffId, periods] of Object.entries(biweeklyHours)) {
     const profile = staffProfiles.find((p) => p.userId === staffId);
     if (!profile) continue;
 
-    for (const [weekKey, hours] of Object.entries(weeks)) {
-      if (hours > profile.maxHoursPerWeek) {
+    const threshold = BIWEEKLY_OT_HOURS[profile.employmentType];
+    if (threshold === null) continue; // casual — no biweekly OT rule
+
+    for (const [periodStart, hours] of Object.entries(periods)) {
+      if (hours > threshold) {
         risks.push({
           userId: staffId,
           projectedHours: hours,
-          threshold: profile.maxHoursPerWeek,
-          message: `${profile.firstName} ${profile.lastName} projected to exceed ${profile.maxHoursPerWeek} hrs the week of ${weekKey}`,
+          threshold,
+          message: `${profile.firstName} ${profile.lastName} projected ${hours} hrs in the biweekly period starting ${periodStart} (limit ${threshold} hrs)`,
         });
       }
     }
