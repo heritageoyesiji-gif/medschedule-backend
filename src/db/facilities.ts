@@ -24,3 +24,8 @@ export async function findFacilityByAdmin(adminUserId: string): Promise<Facility
   const row = await prisma.facility.findFirst({ where: { adminUserId } });
   return row as FacilityRecord | null;
 }
+
+export async function findAllFacilitiesByAdmin(adminUserId: string): Promise<FacilityRecord[]> {
+  const rows = await prisma.facility.findMany({ where: { adminUserId }, orderBy: { createdAt: "asc" } });
+  return rows as FacilityRecord[];
+}

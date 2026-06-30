@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { v4 as uuidv4 } from "uuid";
-import { createFacility, findFacilityById } from "../db/facilities";
+import { createFacility, findAllFacilitiesByAdmin, findFacilityById } from "../db/facilities";
 import { setUserFacilityId } from "../db/users";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { sendError, sendSuccess } from "../utils/response";
@@ -40,7 +40,13 @@ router.post("/", requireAuth, requireRole("admin"), async (req, res) => {
   );
 });
 
-// 2.2 Get Facility Details (admin, own facility only)
+// 2.2 List all facilities managed by the current admin
+router.get("/mine", requireAuth, requireRole("admin"), async (req, res) => {
+  const facilities = await findAllFacilitiesByAdmin(req.auth!.userId);
+  sendSuccess(res, { facilities });
+});
+
+// 2.3 Get Facility Details (admin, own facility only)
 router.get("/:facilityId", requireAuth, requireRole("admin"), async (req, res) => {
   const { facilityId } = req.params as { facilityId: string };
 
