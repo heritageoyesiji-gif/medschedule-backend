@@ -151,6 +151,18 @@ model StaffInvite {
   used       Boolean @default(false)
 }
 
+model FacilityShiftConfig {
+  id            String @id @default(cuid())
+  facilityId    String
+  shiftType     String
+  label         String
+  startTime     String
+  endTime       String
+  durationHours Float
+
+  @@unique([facilityId, shiftType])
+}
+
 model StaffingRequirement {
   requirementId String @id
   facilityId    String

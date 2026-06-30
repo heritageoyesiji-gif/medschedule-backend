@@ -44,7 +44,7 @@ const SUBMIT_SCHEDULE_TOOL: Anthropic.Tool = {
             date: { type: "string", description: "Date in YYYY-MM-DD format" },
             shiftType: {
               type: "string",
-              enum: ["day", "evening", "night"],
+              enum: ["day", "evening", "night", "D12", "N12", "D8", "N8"],
               description: "Type of shift",
             },
           },
@@ -223,7 +223,7 @@ router.post("/ai/generate-schedule", requireAuth, requireRole("admin"), async (r
     const staff = staffMap.get(a.staffId);
     if (!staff) continue;
     const type = a.shiftType as ShiftType;
-    if (!["day", "evening", "night"].includes(type)) continue;
+    if (!["day", "evening", "night", "D12", "N12", "D8", "N8"].includes(type)) continue;
     const times = shiftTimes(type);
     generated.push({
       staffId: a.staffId,

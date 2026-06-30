@@ -13,6 +13,7 @@ import notificationsRouter from "./routes/notifications";
 import announcementsRouter from "./routes/announcements";
 import requirementsRouter from "./routes/requirements";
 import superRouter from "./routes/super";
+import shiftConfigRouter from "./routes/shiftConfig";
 
 export function createApp() {
   const app = express();
@@ -41,6 +42,7 @@ export function createApp() {
   app.use("/api", announcementsRouter);
   app.use("/api", requirementsRouter);
   app.use("/api", superRouter);
+  app.use("/api", shiftConfigRouter);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
