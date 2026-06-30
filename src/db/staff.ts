@@ -34,7 +34,7 @@ export async function createStaffProfile(input: {
       roleType: input.roleType ?? "RN",
       unit: input.unit ?? "",
       qualifications: input.qualifications ?? [],
-      employmentType: input.employmentType ?? "full-time",
+      employmentType: input.employmentType ?? "fulltime-permanent",
       availability: input.availability ?? {},
       maxHoursPerWeek: input.maxHoursPerWeek ?? 40,
       status: "active",
