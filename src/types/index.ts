@@ -1,6 +1,6 @@
 export type UserRole = "admin" | "staff" | "superadmin";
 export type ShiftType = "day" | "evening" | "night" | "D12" | "N12" | "D8" | "N8";
-export type StaffRoleType = "RN" | "PSW" | "LPN" | "doctor" | "technician";
+export type StaffRoleType = "RN" | "PSW" | "LPN" | "LTCA" | "doctor" | "technician";
 export type EmploymentType = "full-time" | "part-time" | "contract";
 export type RequestStatus = "pending" | "approved" | "rejected";
 export type ShiftStatus = "confirmed" | "pending" | "cancelled";
