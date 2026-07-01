@@ -1,19 +1,10 @@
 import { v4 as uuidv4 } from "uuid";
 import { prisma } from "./prisma";
 import type { AIPreviewRecord, AIPreviewShift, ShiftRecord } from "./store";
-import type { EmploymentType, OvertimeRisk, ShiftType, StaffRoleType } from "../types";
+import type { OvertimeRisk, ShiftType, StaffRoleType } from "../types";
 import { findStaffByFacility } from "./staff";
 import { findRequirementsByFacility } from "./requirements";
-
-// ─── Biweekly OT thresholds by employment type ───────────────────────────────
-
-const BIWEEKLY_OT_HOURS: Record<EmploymentType, number | null> = {
-  "fulltime-permanent":  80,
-  "fulltime-temporary":  80,
-  "parttime-permanent":  60,
-  "parttime-temporary":  60,
-  "casual":              null, // no fixed biweekly threshold for casual
-};
+import { getOvertimeThresholdMap } from "./overtimeConfig";
 
 // ─── Shift times by type ──────────────────────────────────────────────────────
 
@@ -253,9 +244,10 @@ function getBiweeklyPeriodStart(dateStr: string): string {
 }
 
 export async function calcOvertimeRisks(facilityId: string, month: string): Promise<OvertimeRisk[]> {
-  const [shifts, staffProfiles] = await Promise.all([
+  const [shifts, staffProfiles, thresholds] = await Promise.all([
     findShiftsByFacilityAndMonth(facilityId, month),
     findStaffByFacility(facilityId),
+    getOvertimeThresholdMap(facilityId),
   ]);
 
   // Accumulate hours per staff per biweekly period
@@ -274,8 +266,8 @@ export async function calcOvertimeRisks(facilityId: string, month: string): Prom
     const profile = staffProfiles.find((p) => p.userId === staffId);
     if (!profile) continue;
 
-    const threshold = BIWEEKLY_OT_HOURS[profile.employmentType];
-    if (threshold === null) continue; // casual — no biweekly OT rule
+    const threshold = thresholds[profile.employmentType];
+    if (threshold === null || threshold === undefined) continue; // no biweekly OT rule
 
     for (const [periodStart, hours] of Object.entries(periods)) {
       if (hours > threshold) {

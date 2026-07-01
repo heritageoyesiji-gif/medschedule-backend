@@ -173,3 +173,12 @@ model StaffingRequirement {
 
   @@unique([facilityId, unit, shiftType, requiredRole])
 }
+
+model FacilityOvertimeConfig {
+  id             String @id @default(cuid())
+  facilityId     String
+  employmentType String
+  biweeklyHours  Int? // null = no biweekly OT threshold (e.g. casual)
+
+  @@unique([facilityId, employmentType])
+}
