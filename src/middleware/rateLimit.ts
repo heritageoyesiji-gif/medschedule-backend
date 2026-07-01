@@ -26,6 +26,16 @@ export const magicLinkLimiter = rateLimit({
   handler: json429,
 });
 
+// Strict: single-use token verification (magic-link, password reset, QR login).
+// These consume tokens and can mint sessions, so cap brute-force attempts.
+export const verifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: json429,
+});
+
 // Moderate: staff invite — prevents invite spam from compromised admin accounts
 export const inviteLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,

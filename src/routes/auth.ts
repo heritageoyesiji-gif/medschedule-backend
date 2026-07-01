@@ -21,7 +21,7 @@ import {
   updateStaffProfile,
 } from "../db/staff";
 import { requireAuth, requireRole } from "../middleware/auth";
-import { loginLimiter, magicLinkLimiter, signupLimiter } from "../middleware/rateLimit";
+import { loginLimiter, magicLinkLimiter, signupLimiter, verifyLimiter } from "../middleware/rateLimit";
 import { sendError, sendSuccess } from "../utils/response";
 import { sendMagicLinkEmail, sendPasswordResetEmail } from "../utils/email";
 import type { UserRole } from "../types";
@@ -222,7 +222,7 @@ router.post("/magic-link", magicLinkLimiter, async (req, res) => {
   sendSuccess(res, { message: "Magic link sent to email" });
 });
 
-router.post("/magic-link/verify", async (req, res) => {
+router.post("/magic-link/verify", verifyLimiter, async (req, res) => {
   const { token } = req.body as { token?: string };
   if (!token) {
     sendError(res, 400, "VALIDATION_ERROR", "Token is required");
@@ -268,7 +268,7 @@ router.post("/forgot-password", magicLinkLimiter, async (req, res) => {
   sendSuccess(res, { message: "If that email exists, a reset link has been sent" });
 });
 
-router.post("/reset-password", async (req, res) => {
+router.post("/reset-password", verifyLimiter, async (req, res) => {
   const { token, password } = req.body as { token?: string; password?: string };
 
   if (!token || !password) {
@@ -305,7 +305,7 @@ router.get("/qr-token", requireAuth, requireRole("staff"), async (req, res) => {
   sendSuccess(res, { qrToken, expiresAt, loginUrl });
 });
 
-router.post("/qr-login/verify", async (req, res) => {
+router.post("/qr-login/verify", verifyLimiter, async (req, res) => {
   const { token } = req.body as { token?: string };
   if (!token) {
     sendError(res, 400, "VALIDATION_ERROR", "Token is required");

@@ -1,5 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
+import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { config } from "./config";
 import authRouter from "./routes/auth";
@@ -18,6 +19,15 @@ import overtimeConfigRouter from "./routes/overtimeConfig";
 
 export function createApp() {
   const app = express();
+
+  // Behind Railway's proxy: trust the first proxy hop so express-rate-limit
+  // and req.ip see the real client IP (X-Forwarded-For) rather than the proxy's.
+  // Required for rate limiting to key on the actual caller (express-rate-limit v8
+  // also validates this). "1" = trust exactly one hop, not an open trust.
+  app.set("trust proxy", 1);
+
+  // Standard security headers (HSTS, X-Content-Type-Options, frameguard, etc.).
+  app.use(helmet());
 
   app.use(
     cors({
