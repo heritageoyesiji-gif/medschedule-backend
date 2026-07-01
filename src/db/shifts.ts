@@ -21,6 +21,19 @@ export function shiftTimes(type: ShiftType): { startTime: string; endTime: strin
   return map[type];
 }
 
+// Computes start/end/duration from HH:MM strings. An end at or before the start
+// is treated as the next day (overnight).
+export function computeShiftTimes(
+  startTime: string,
+  endTime: string,
+): { startTime: string; endTime: string; durationHours: number } {
+  const [sh, sm] = startTime.split(":").map(Number);
+  const [eh, em] = endTime.split(":").map(Number);
+  let endMins = eh * 60 + em;
+  if (endMins <= sh * 60 + sm) endMins += 24 * 60;
+  return { startTime, endTime, durationHours: (endMins - (sh * 60 + sm)) / 60 };
+}
+
 function toShiftRecord(row: unknown): ShiftRecord {
   return row as ShiftRecord;
 }
@@ -72,23 +85,34 @@ export async function findShiftsByFacilityAndMonth(facilityId: string, month: st
 
 export async function updateShift(
   shiftId: string,
-  patch: { date?: string; type?: ShiftType; staffId?: string; unit?: string },
+  patch: {
+    date?: string;
+    type?: ShiftType;
+    staffId?: string;
+    unit?: string;
+    startTime?: string;
+    endTime?: string;
+  },
 ): Promise<ShiftRecord | null> {
   const existing = await prisma.shift.findUnique({ where: { shiftId } });
   if (!existing) return null;
 
   const newType = patch.type ?? (existing.type as ShiftType);
-  const times = patch.type ? shiftTimes(newType) : {
-    startTime: existing.startTime,
-    endTime: existing.endTime,
-    durationHours: existing.durationHours,
-  };
+
+  // Explicit start/end win; otherwise a type change resets to that type's
+  // default window; otherwise the existing times are kept untouched.
+  const hasExplicitTimes = Boolean(patch.startTime && patch.endTime);
+  const setTimes = hasExplicitTimes || Boolean(patch.type);
+  const times = hasExplicitTimes
+    ? computeShiftTimes(patch.startTime!, patch.endTime!)
+    : shiftTimes(newType);
 
   const row = await prisma.shift.update({
     where: { shiftId },
     data: {
       ...(patch.date && { date: patch.date }),
-      ...(patch.type && { type: newType, ...times }),
+      ...(patch.type && { type: newType }),
+      ...(setTimes && times),
       ...(patch.staffId && { staffId: patch.staffId }),
       ...(patch.unit && { unit: patch.unit }),
     },

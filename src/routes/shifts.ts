@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import {
   calcGaps,
   calcOvertimeRisks,
+  computeShiftTimes,
   copyShiftsToMonth,
   createShift,
   deleteShift,
@@ -41,6 +42,8 @@ const updateShiftSchema = z.object({
   type: shiftTypeSchema.optional(),
   staffId: nonEmptyString.optional(),
   unit: nonEmptyString.optional(),
+  startTime: timeSchema.optional(),
+  endTime: timeSchema.optional(),
 });
 
 const publishSchema = z.object({ month: monthSchema });
@@ -134,15 +137,7 @@ router.post("/shifts", requireAuth, requireRole("admin"), validateBody(createShi
     return;
   }
 
-  const times = startTime && endTime
-    ? (() => {
-        const [sh, sm] = startTime.split(":").map(Number);
-        const [eh, em] = endTime.split(":").map(Number);
-        let endMins = eh * 60 + em;
-        if (endMins <= sh * 60 + sm) endMins += 24 * 60;
-        return { startTime, endTime, durationHours: (endMins - (sh * 60 + sm)) / 60 };
-      })()
-    : shiftTimes(type);
+  const times = startTime && endTime ? computeShiftTimes(startTime, endTime) : shiftTimes(type);
 
   if (times.durationHours <= 0 || times.durationHours > MAX_SHIFT_HOURS) {
     sendError(
@@ -187,7 +182,7 @@ router.post("/shifts", requireAuth, requireRole("admin"), validateBody(createShi
 // 4.4 Update Shift (admin)
 router.patch("/shifts/:shiftId", requireAuth, requireRole("admin"), validateBody(updateShiftSchema), async (req, res) => {
   const { shiftId } = req.params as { shiftId: string };
-  const { date, type, staffId, unit } = req.body as z.infer<typeof updateShiftSchema>;
+  const { date, type, staffId, unit, startTime, endTime } = req.body as z.infer<typeof updateShiftSchema>;
 
   const existing = await findShiftById(shiftId);
   if (!existing) {
@@ -195,7 +190,20 @@ router.patch("/shifts/:shiftId", requireAuth, requireRole("admin"), validateBody
     return;
   }
 
-  const updated = await updateShift(shiftId, { date, type, staffId, unit });
+  if (startTime && endTime) {
+    const { durationHours } = computeShiftTimes(startTime, endTime);
+    if (durationHours <= 0 || durationHours > MAX_SHIFT_HOURS) {
+      sendError(
+        res,
+        400,
+        "INVALID_SHIFT_TIME",
+        `A shift must be between 0 and ${MAX_SHIFT_HOURS} hours. Overnight shifts are allowed — the end time counts as the next day — so check the start and end times.`,
+      );
+      return;
+    }
+  }
+
+  const updated = await updateShift(shiftId, { date, type, staffId, unit, startTime, endTime });
   if (!updated) {
     sendError(res, 404, "NOT_FOUND", "Shift not found");
     return;
