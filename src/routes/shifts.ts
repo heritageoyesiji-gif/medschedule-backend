@@ -45,6 +45,10 @@ const updateShiftSchema = z.object({
 const publishSchema = z.object({ month: monthSchema });
 const copyForwardSchema = z.object({ sourceMonth: monthSchema, targetMonth: monthSchema });
 
+// Longest a single shift may run. A longer span is almost always a backwards
+// same-day entry (e.g. 19:00 → 18:00 wraps to 23h). Overnight shifts are fine.
+const MAX_SHIFT_HOURS = 16;
+
 // 4.1 Get Staff Personal Schedule
 router.get("/shifts", requireAuth, requireRole("staff"), async (req, res) => {
   const { staffId, month } = req.query as { staffId?: string; month?: string };
@@ -138,6 +142,16 @@ router.post("/shifts", requireAuth, requireRole("admin"), validateBody(createShi
         return { startTime, endTime, durationHours: (endMins - (sh * 60 + sm)) / 60 };
       })()
     : shiftTimes(type);
+
+  if (times.durationHours <= 0 || times.durationHours > MAX_SHIFT_HOURS) {
+    sendError(
+      res,
+      400,
+      "INVALID_SHIFT_TIME",
+      `A shift must be between 0 and ${MAX_SHIFT_HOURS} hours. Overnight shifts are allowed — the end time counts as the next day — so check the start and end times.`,
+    );
+    return;
+  }
 
   const shift = await createShift({
     shiftId: `shf_${uuidv4().slice(0, 8)}`,
