@@ -9,7 +9,7 @@ import {
 } from "../db/requests";
 import { findStaffById } from "../db/staff";
 import { createNotification } from "../db/notifications";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { requireAuth, requireFacilityAccess, requireRole } from "../middleware/auth";
 import { emitToUser } from "../socket";
 import { sendError, sendSuccess } from "../utils/response";
 import type { RequestStatus } from "../types";
@@ -82,7 +82,7 @@ router.get("/time-off", requireAuth, requireRole("staff"), async (req, res) => {
 });
 
 // 7.3 Get All Time Off Requests (admin)
-router.get("/facilities/:facilityId/time-off", requireAuth, requireRole("admin"), async (req, res) => {
+router.get("/facilities/:facilityId/time-off", requireAuth, requireRole("admin"), requireFacilityAccess, async (req, res) => {
   const { facilityId } = req.params as { facilityId: string };
   const { status } = req.query as { status?: string };
 

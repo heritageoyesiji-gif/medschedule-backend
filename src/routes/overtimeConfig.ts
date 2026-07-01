@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { requireAuth, requireFacilityAccess, requireRole } from "../middleware/auth";
 import { sendError, sendSuccess } from "../utils/response";
 import {
   EMPLOYMENT_TYPES,
@@ -14,7 +14,7 @@ const router = Router();
 const VALID_EMPLOYMENT_TYPES = new Set<string>(EMPLOYMENT_TYPES);
 
 // GET /api/facilities/:facilityId/overtime-config
-router.get("/facilities/:facilityId/overtime-config", requireAuth, requireRole("admin"), async (req, res) => {
+router.get("/facilities/:facilityId/overtime-config", requireAuth, requireRole("admin"), requireFacilityAccess, async (req, res) => {
   const { facilityId } = req.params as { facilityId: string };
   const configs = await getFacilityOvertimeConfig(facilityId);
   sendSuccess(res, { configs });
@@ -25,6 +25,7 @@ router.put(
   "/facilities/:facilityId/overtime-config/:employmentType",
   requireAuth,
   requireRole("admin"),
+  requireFacilityAccess,
   async (req, res) => {
     const { facilityId, employmentType } = req.params as { facilityId: string; employmentType: string };
 
@@ -57,6 +58,7 @@ router.delete(
   "/facilities/:facilityId/overtime-config/:employmentType",
   requireAuth,
   requireRole("admin"),
+  requireFacilityAccess,
   async (req, res) => {
     const { facilityId, employmentType } = req.params as { facilityId: string; employmentType: string };
 

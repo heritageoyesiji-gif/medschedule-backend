@@ -4,7 +4,7 @@ import { createSwapRequest, findSwapById, findSwapsByFacility, respondToSwap } f
 import { findShiftById, updateShift } from "../db/shifts";
 import { findStaffById } from "../db/staff";
 import { createNotification } from "../db/notifications";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { requireAuth, requireFacilityAccess, requireRole } from "../middleware/auth";
 import { emitToUser } from "../socket";
 import { sendError, sendSuccess } from "../utils/response";
 import type { RequestStatus } from "../types";
@@ -59,7 +59,7 @@ router.post("/swap-requests", requireAuth, requireRole("staff"), async (req, res
 });
 
 // 6.2 Get Facility Swap Requests (admin)
-router.get("/facilities/:facilityId/swap-requests", requireAuth, requireRole("admin"), async (req, res) => {
+router.get("/facilities/:facilityId/swap-requests", requireAuth, requireRole("admin"), requireFacilityAccess, async (req, res) => {
   const { facilityId } = req.params as { facilityId: string };
   const { status } = req.query as { status?: string };
 

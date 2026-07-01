@@ -27,6 +27,8 @@ model Facility {
   contactPhone String
   adminUserId  String
   createdAt    String
+
+  @@index([adminUserId])
 }
 
 model StaffProfile {
@@ -42,6 +44,8 @@ model StaffProfile {
   availability    Json
   maxHoursPerWeek Int    @default(40)
   status          String @default("active")
+
+  @@index([facilityId])
 }
 
 model Shift {
@@ -57,6 +61,9 @@ model Shift {
   status        String  @default("confirmed")
   publishedAt   String?
   createdAt     String
+
+  @@index([facilityId, date])
+  @@index([staffId, date])
 }
 
 model AIPreview {
@@ -80,6 +87,8 @@ model SwapRequest {
   status           String  @default("pending")
   adminNote        String?
   submittedAt      String
+
+  @@index([facilityId])
 }
 
 model TimeOffRequest {
@@ -92,6 +101,9 @@ model TimeOffRequest {
   status      String  @default("pending")
   adminNote   String?
   submittedAt String
+
+  @@index([facilityId])
+  @@index([staffId])
 }
 
 model Notification {
@@ -102,6 +114,8 @@ model Notification {
   message        String
   read           Boolean @default(false)
   createdAt      String
+
+  @@index([userId])
 }
 
 model Announcement {
@@ -111,6 +125,8 @@ model Announcement {
   body           String
   priority       String @default("normal")
   createdAt      String
+
+  @@index([facilityId])
 }
 
 model MagicLinkToken {

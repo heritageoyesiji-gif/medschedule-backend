@@ -12,7 +12,7 @@ import { findFacilityById } from "../db/facilities";
 import { createStaffInvite } from "../db/tokens";
 import { sendStaffInviteEmail } from "../utils/email";
 import { config } from "../config";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { requireAuth, requireFacilityAccess, requireRole } from "../middleware/auth";
 import { inviteLimiter } from "../middleware/rateLimit";
 import { sendError, sendSuccess } from "../utils/response";
 import type { EmploymentType, ShiftType, StaffRoleType } from "../types";
@@ -20,7 +20,7 @@ import type { EmploymentType, ShiftType, StaffRoleType } from "../types";
 const router = Router();
 
 // 3.1 Get All Staff (admin, own facility)
-router.get("/facilities/:facilityId/staff", requireAuth, requireRole("admin"), async (req, res) => {
+router.get("/facilities/:facilityId/staff", requireAuth, requireRole("admin"), requireFacilityAccess, async (req, res) => {
   const { facilityId } = req.params as { facilityId: string };
   const staff = await findStaffByFacility(facilityId);
   sendSuccess(res, { staff, total: staff.length });
@@ -84,7 +84,7 @@ router.patch("/staff/:staffId/availability", requireAuth, async (req, res) => {
 });
 
 // 3.3 Add Staff Member (admin)
-router.post("/facilities/:facilityId/staff", requireAuth, requireRole("admin"), async (req, res) => {
+router.post("/facilities/:facilityId/staff", requireAuth, requireRole("admin"), requireFacilityAccess, async (req, res) => {
   const { facilityId } = req.params as { facilityId: string };
   const {
     firstName,
@@ -187,7 +187,7 @@ router.patch("/staff/:staffId/deactivate", requireAuth, requireRole("admin"), as
 });
 
 // 3.6 Invite Staff Member by email (admin)
-router.post("/facilities/:facilityId/staff/invite", requireAuth, requireRole("admin"), inviteLimiter, async (req, res) => {
+router.post("/facilities/:facilityId/staff/invite", requireAuth, requireRole("admin"), requireFacilityAccess, inviteLimiter, async (req, res) => {
   const { facilityId } = req.params as { facilityId: string };
   const { email } = req.body as { email?: string };
 

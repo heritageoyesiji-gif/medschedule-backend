@@ -3,7 +3,7 @@ import {
   findRequirementsByFacility,
   replaceRequirements,
 } from "../db/requirements";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { requireAuth, requireFacilityAccess, requireRole } from "../middleware/auth";
 import { sendError, sendSuccess } from "../utils/response";
 
 const router = Router();
@@ -16,6 +16,7 @@ router.get(
   "/facilities/:facilityId/requirements",
   requireAuth,
   requireRole("admin"),
+  requireFacilityAccess,
   async (req, res) => {
     const { facilityId } = req.params as { facilityId: string };
     const requirements = await findRequirementsByFacility(facilityId);
@@ -28,6 +29,7 @@ router.put(
   "/facilities/:facilityId/requirements",
   requireAuth,
   requireRole("admin"),
+  requireFacilityAccess,
   async (req, res) => {
     const { facilityId } = req.params as { facilityId: string };
     const { requirements } = req.body as {

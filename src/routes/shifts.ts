@@ -16,7 +16,7 @@ import {
 } from "../db/shifts";
 import { findStaffById } from "../db/staff";
 import { createNotificationsForUsers } from "../db/notifications";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { requireAuth, requireFacilityAccess, requireRole } from "../middleware/auth";
 import { emitToFacility, emitToUser } from "../socket";
 import { sendError, sendSuccess } from "../utils/response";
 import type { ShiftType } from "../types";
@@ -53,7 +53,7 @@ router.get("/shifts", requireAuth, requireRole("staff"), async (req, res) => {
 });
 
 // 4.2 Get Full Facility Schedule (admin)
-router.get("/facilities/:facilityId/schedule", requireAuth, requireRole("admin"), async (req, res) => {
+router.get("/facilities/:facilityId/schedule", requireAuth, requireRole("admin"), requireFacilityAccess, async (req, res) => {
   const { facilityId } = req.params as { facilityId: string };
   const { month } = req.query as { month?: string };
 
@@ -216,7 +216,7 @@ router.delete("/shifts/:shiftId", requireAuth, requireRole("admin"), async (req,
 });
 
 // 4.6 Publish Schedule (admin)
-router.post("/facilities/:facilityId/schedule/publish", requireAuth, requireRole("admin"), async (req, res) => {
+router.post("/facilities/:facilityId/schedule/publish", requireAuth, requireRole("admin"), requireFacilityAccess, async (req, res) => {
   const { facilityId } = req.params as { facilityId: string };
   const { month } = req.body as { month?: string };
 
@@ -256,7 +256,7 @@ router.post("/facilities/:facilityId/schedule/publish", requireAuth, requireRole
 });
 
 // 4.7 Copy schedule from a previous month (admin)
-router.post("/facilities/:facilityId/schedule/copy-forward", requireAuth, requireRole("admin"), async (req, res) => {
+router.post("/facilities/:facilityId/schedule/copy-forward", requireAuth, requireRole("admin"), requireFacilityAccess, async (req, res) => {
   const { facilityId } = req.params as { facilityId: string };
   const { sourceMonth, targetMonth } = req.body as { sourceMonth?: string; targetMonth?: string };
 

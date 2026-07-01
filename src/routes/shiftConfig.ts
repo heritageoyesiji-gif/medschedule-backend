@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { requireAuth, requireFacilityAccess, requireRole } from "../middleware/auth";
 import { sendError, sendSuccess } from "../utils/response";
 import {
   ALL_SHIFT_TYPE_DEFAULTS,
@@ -13,7 +13,7 @@ const router = Router();
 const VALID_SHIFT_TYPES = new Set(ALL_SHIFT_TYPE_DEFAULTS.map((d) => d.shiftType));
 
 // GET /api/facilities/:facilityId/shift-config
-router.get("/facilities/:facilityId/shift-config", requireAuth, requireRole("admin"), async (req, res) => {
+router.get("/facilities/:facilityId/shift-config", requireAuth, requireRole("admin"), requireFacilityAccess, async (req, res) => {
   const { facilityId } = req.params as { facilityId: string };
   const configs = await getFacilityShiftConfig(facilityId);
   sendSuccess(res, { configs });
@@ -24,6 +24,7 @@ router.put(
   "/facilities/:facilityId/shift-config/:shiftType",
   requireAuth,
   requireRole("admin"),
+  requireFacilityAccess,
   async (req, res) => {
     const { facilityId, shiftType } = req.params as { facilityId: string; shiftType: string };
 
@@ -49,6 +50,7 @@ router.delete(
   "/facilities/:facilityId/shift-config/:shiftType",
   requireAuth,
   requireRole("admin"),
+  requireFacilityAccess,
   async (req, res) => {
     const { facilityId, shiftType } = req.params as { facilityId: string; shiftType: string };
 

@@ -12,7 +12,7 @@ import {
 import { findStaffByFacility } from "../db/staff";
 import { findRequirementsByFacility } from "../db/requirements";
 import { config } from "../config";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { callerCanAccessFacility, requireAuth, requireRole } from "../middleware/auth";
 import { sendError, sendSuccess } from "../utils/response";
 import type { ShiftRecord, AIPreviewShift } from "../db/store";
 import type { ShiftType } from "../types";
@@ -115,6 +115,11 @@ router.post("/ai/generate-schedule", requireAuth, requireRole("admin"), async (r
 
   if (!facilityId || !month || !command) {
     sendError(res, 400, "VALIDATION_ERROR", "facilityId, month, and command are required");
+    return;
+  }
+
+  if (!(await callerCanAccessFacility(req.auth!, facilityId))) {
+    sendError(res, 403, "FORBIDDEN", "You do not have access to this facility");
     return;
   }
 
@@ -256,6 +261,11 @@ router.post("/ai/generate-schedule/confirm", requireAuth, requireRole("admin"), 
 
   if (!facilityId || !month) {
     sendError(res, 400, "VALIDATION_ERROR", "facilityId and month are required");
+    return;
+  }
+
+  if (!(await callerCanAccessFacility(req.auth!, facilityId))) {
+    sendError(res, 403, "FORBIDDEN", "You do not have access to this facility");
     return;
   }
 

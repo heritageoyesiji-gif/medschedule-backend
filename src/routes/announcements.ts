@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { createAnnouncement, findAnnouncementsByFacility } from "../db/announcements";
 import { findStaffByFacility } from "../db/staff";
 import { createNotificationsForUsers } from "../db/notifications";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { callerCanAccessFacility, requireAuth, requireFacilityAccess, requireRole } from "../middleware/auth";
 import { emitToFacility } from "../socket";
 import { sendError, sendSuccess } from "../utils/response";
 
@@ -20,6 +20,11 @@ router.post("/announcements", requireAuth, requireRole("admin"), async (req, res
 
   if (!facilityId || !title || !body) {
     sendError(res, 400, "VALIDATION_ERROR", "facilityId, title, and body are required");
+    return;
+  }
+
+  if (!(await callerCanAccessFacility(req.auth!, facilityId))) {
+    sendError(res, 403, "FORBIDDEN", "You do not have access to this facility");
     return;
   }
 
@@ -64,7 +69,7 @@ router.post("/announcements", requireAuth, requireRole("admin"), async (req, res
 });
 
 // 9.2 Get Announcements
-router.get("/facilities/:facilityId/announcements", requireAuth, async (req, res) => {
+router.get("/facilities/:facilityId/announcements", requireAuth, requireFacilityAccess, async (req, res) => {
   const { facilityId } = req.params as { facilityId: string };
   const announcements = (await findAnnouncementsByFacility(facilityId)).map(
     ({ facilityId: _fid, ...rest }) => rest,
