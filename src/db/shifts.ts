@@ -142,6 +142,26 @@ export async function isSchedulePublished(facilityId: string, month: string): Pr
   return row !== null;
 }
 
+export async function unpublishSchedule(
+  facilityId: string,
+  month: string,
+): Promise<{ affectedCount: number }> {
+  const shifts = await prisma.shift.findMany({
+    where: { facilityId, date: { startsWith: month } },
+    select: { shiftId: true },
+  });
+
+  await prisma.$transaction([
+    prisma.shift.updateMany({
+      where: { facilityId, date: { startsWith: month } },
+      data: { publishedAt: null },
+    }),
+    prisma.publishedSchedule.deleteMany({ where: { facilityId, month } }),
+  ]);
+
+  return { affectedCount: shifts.length };
+}
+
 // ─── AI preview ───────────────────────────────────────────────────────────────
 
 export async function saveAIPreview(facilityId: string, month: string, shifts: AIPreviewShift[]): Promise<void> {

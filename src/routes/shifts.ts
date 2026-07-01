@@ -12,6 +12,7 @@ import {
   isSchedulePublished,
   publishSchedule,
   shiftTimes,
+  unpublishSchedule,
   updateShift,
 } from "../db/shifts";
 import { findStaffById } from "../db/staff";
@@ -271,6 +272,22 @@ router.post("/facilities/:facilityId/schedule/publish", requireAuth, requireRole
     published: true,
     publishedAt: result.publishedAt,
     notifiedStaffCount: result.notifiedCount,
+  });
+});
+
+// 4.6b Unpublish Schedule (admin) — reverts a published month back to draft
+router.post("/facilities/:facilityId/schedule/unpublish", requireAuth, requireRole("admin"), requireFacilityAccess, validateBody(publishSchema), async (req, res) => {
+  const { facilityId } = req.params as { facilityId: string };
+  const { month } = req.body as z.infer<typeof publishSchema>;
+
+  const result = await unpublishSchedule(facilityId, month);
+
+  emitToFacility(facilityId, "schedule_unpublished", { facilityId, month });
+
+  sendSuccess(res, {
+    month,
+    published: false,
+    affectedCount: result.affectedCount,
   });
 });
 
