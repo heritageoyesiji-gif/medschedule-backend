@@ -13,11 +13,47 @@ import { createStaffInvite } from "../db/tokens";
 import { sendStaffInviteEmail } from "../utils/email";
 import { config } from "../config";
 import { requireAuth, requireFacilityAccess, requireRole } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
 import { inviteLimiter } from "../middleware/rateLimit";
+import {
+  availabilitySchema,
+  emailSchema,
+  employmentTypeSchema,
+  nonEmptyString,
+  staffRoleTypeSchema,
+} from "../schemas";
+import { z } from "zod";
 import { sendError, sendSuccess } from "../utils/response";
-import type { EmploymentType, ShiftType, StaffRoleType } from "../types";
 
 const router = Router();
+
+const maxHoursSchema = z.number().int().positive().max(168);
+
+const createStaffSchema = z.object({
+  firstName: nonEmptyString,
+  lastName: nonEmptyString,
+  email: emailSchema,
+  roleType: staffRoleTypeSchema.optional(),
+  unit: z.string().optional(),
+  qualifications: z.array(z.string()).optional(),
+  employmentType: employmentTypeSchema.optional(),
+  availability: availabilitySchema.optional(),
+  maxHoursPerWeek: maxHoursSchema.optional(),
+});
+
+const updateStaffSchema = z.object({
+  firstName: nonEmptyString.optional(),
+  lastName: nonEmptyString.optional(),
+  roleType: staffRoleTypeSchema.optional(),
+  unit: z.string().optional(),
+  qualifications: z.array(z.string()).optional(),
+  employmentType: employmentTypeSchema.optional(),
+  availability: availabilitySchema.optional(),
+  maxHoursPerWeek: maxHoursSchema.optional(),
+});
+
+const availabilityBodySchema = z.object({ availability: availabilitySchema });
+const inviteSchema = z.object({ email: emailSchema });
 
 // 3.1 Get All Staff (admin, own facility)
 router.get("/facilities/:facilityId/staff", requireAuth, requireRole("admin"), requireFacilityAccess, async (req, res) => {
@@ -45,7 +81,7 @@ router.get("/staff/:staffId", requireAuth, async (req, res) => {
 });
 
 // 3.2a Update own availability (staff) or any staff availability (admin)
-router.patch("/staff/:staffId/availability", requireAuth, async (req, res) => {
+router.patch("/staff/:staffId/availability", requireAuth, validateBody(availabilityBodySchema), async (req, res) => {
   const { staffId } = req.params as { staffId: string };
 
   if (req.auth!.role === "staff" && req.auth!.userId !== staffId) {
@@ -53,26 +89,7 @@ router.patch("/staff/:staffId/availability", requireAuth, async (req, res) => {
     return;
   }
 
-  const { availability } = req.body as { availability?: Record<string, ShiftType[]> };
-
-  if (!availability || typeof availability !== "object" || Array.isArray(availability)) {
-    sendError(res, 400, "VALIDATION_ERROR", "availability must be an object");
-    return;
-  }
-
-  const validShiftTypes = new Set<string>(["day", "evening", "night"]);
-  for (const [, shifts] of Object.entries(availability)) {
-    if (!Array.isArray(shifts)) {
-      sendError(res, 400, "VALIDATION_ERROR", "Each day's value must be an array of shift types");
-      return;
-    }
-    for (const s of shifts) {
-      if (!validShiftTypes.has(s as string)) {
-        sendError(res, 400, "VALIDATION_ERROR", `Invalid shift type: ${s as string}`);
-        return;
-      }
-    }
-  }
+  const { availability } = req.body as z.infer<typeof availabilityBodySchema>;
 
   const updated = await updateStaffProfile(staffId, { availability });
   if (!updated) {
@@ -84,7 +101,7 @@ router.patch("/staff/:staffId/availability", requireAuth, async (req, res) => {
 });
 
 // 3.3 Add Staff Member (admin)
-router.post("/facilities/:facilityId/staff", requireAuth, requireRole("admin"), requireFacilityAccess, async (req, res) => {
+router.post("/facilities/:facilityId/staff", requireAuth, requireRole("admin"), requireFacilityAccess, validateBody(createStaffSchema), async (req, res) => {
   const { facilityId } = req.params as { facilityId: string };
   const {
     firstName,
@@ -96,22 +113,7 @@ router.post("/facilities/:facilityId/staff", requireAuth, requireRole("admin"), 
     employmentType,
     availability,
     maxHoursPerWeek,
-  } = req.body as {
-    firstName?: string;
-    lastName?: string;
-    email?: string;
-    roleType?: StaffRoleType;
-    unit?: string;
-    qualifications?: string[];
-    employmentType?: EmploymentType;
-    availability?: Record<string, ShiftType[]>;
-    maxHoursPerWeek?: number;
-  };
-
-  if (!firstName || !lastName || !email) {
-    sendError(res, 400, "VALIDATION_ERROR", "firstName, lastName, and email are required");
-    return;
-  }
+  } = req.body as z.infer<typeof createStaffSchema>;
 
   const userId = `usr_${uuidv4().slice(0, 8)}`;
   const profile = await createStaffProfile({
@@ -132,7 +134,7 @@ router.post("/facilities/:facilityId/staff", requireAuth, requireRole("admin"), 
 });
 
 // 3.4 Update Staff Profile (admin)
-router.patch("/staff/:staffId", requireAuth, requireRole("admin"), async (req, res) => {
+router.patch("/staff/:staffId", requireAuth, requireRole("admin"), validateBody(updateStaffSchema), async (req, res) => {
   const { staffId } = req.params as { staffId: string };
   const {
     firstName,
@@ -143,16 +145,7 @@ router.patch("/staff/:staffId", requireAuth, requireRole("admin"), async (req, r
     employmentType,
     availability,
     maxHoursPerWeek,
-  } = req.body as Partial<{
-    firstName: string;
-    lastName: string;
-    roleType: StaffRoleType;
-    unit: string;
-    qualifications: string[];
-    employmentType: EmploymentType;
-    availability: Record<string, ShiftType[]>;
-    maxHoursPerWeek: number;
-  }>;
+  } = req.body as z.infer<typeof updateStaffSchema>;
 
   const updated = await updateStaffProfile(staffId, {
     ...(firstName !== undefined && { firstName }),
@@ -187,14 +180,9 @@ router.patch("/staff/:staffId/deactivate", requireAuth, requireRole("admin"), as
 });
 
 // 3.6 Invite Staff Member by email (admin)
-router.post("/facilities/:facilityId/staff/invite", requireAuth, requireRole("admin"), requireFacilityAccess, inviteLimiter, async (req, res) => {
+router.post("/facilities/:facilityId/staff/invite", requireAuth, requireRole("admin"), requireFacilityAccess, inviteLimiter, validateBody(inviteSchema), async (req, res) => {
   const { facilityId } = req.params as { facilityId: string };
-  const { email } = req.body as { email?: string };
-
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    sendError(res, 400, "VALIDATION_ERROR", "Valid email address is required");
-    return;
-  }
+  const { email } = req.body as z.infer<typeof inviteSchema>;
 
   const facility = await findFacilityById(facilityId);
   if (!facility) {

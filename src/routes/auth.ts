@@ -21,12 +21,29 @@ import {
   updateStaffProfile,
 } from "../db/staff";
 import { requireAuth, requireRole } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
 import { loginLimiter, magicLinkLimiter, signupLimiter, verifyLimiter } from "../middleware/rateLimit";
 import { sendError, sendSuccess } from "../utils/response";
 import { sendMagicLinkEmail, sendPasswordResetEmail } from "../utils/email";
+import { emailSchema, nonEmptyString, userRoleSchema } from "../schemas";
+import { z } from "zod";
 import type { UserRole } from "../types";
 
 const router = Router();
+
+const signupSchema = z.object({
+  email: emailSchema.optional(),
+  password: z.string().min(1),
+  firstName: nonEmptyString,
+  lastName: nonEmptyString,
+  role: userRoleSchema.optional(),
+  facilityId: z.string().optional(),
+  inviteToken: z.string().optional(),
+});
+const loginSchema = z.object({ email: nonEmptyString, password: z.string().min(1) });
+const emailOnlySchema = z.object({ email: emailSchema });
+const tokenOnlySchema = z.object({ token: nonEmptyString });
+const resetPasswordSchema = z.object({ token: nonEmptyString, password: z.string().min(1) });
 
 function signJwt(userId: string, role: UserRole): string {
   return jwt.sign({ userId, role }, config.jwtSecret, {
@@ -41,21 +58,9 @@ async function loginPayload(userId: string) {
   return { token, user: rowToUser(user) };
 }
 
-router.post("/signup", signupLimiter, async (req, res) => {
-  const { email: bodyEmail, password, firstName, lastName, role: bodyRole, facilityId: bodyFacilityId, inviteToken } = req.body as {
-    email?: string;
-    password?: string;
-    firstName?: string;
-    lastName?: string;
-    role?: UserRole;
-    facilityId?: string;
-    inviteToken?: string;
-  };
-
-  if (!password || !firstName || !lastName) {
-    sendError(res, 400, "VALIDATION_ERROR", "Missing required fields");
-    return;
-  }
+router.post("/signup", signupLimiter, validateBody(signupSchema), async (req, res) => {
+  const { email: bodyEmail, password, firstName, lastName, role: bodyRole, facilityId: bodyFacilityId, inviteToken } =
+    req.body as z.infer<typeof signupSchema>;
 
   if (password.length < 8) {
     sendError(res, 400, "WEAK_PASSWORD", "Password must be at least 8 characters");
@@ -156,13 +161,8 @@ router.get("/invite/:token", async (req, res) => {
   });
 });
 
-router.post("/login", loginLimiter, async (req, res) => {
-  const { email, password } = req.body as { email?: string; password?: string };
-
-  if (!email || !password) {
-    sendError(res, 400, "VALIDATION_ERROR", "Email and password are required");
-    return;
-  }
+router.post("/login", loginLimiter, validateBody(loginSchema), async (req, res) => {
+  const { email, password } = req.body as z.infer<typeof loginSchema>;
 
   const user = await findUserByEmail(email);
   if (!user) {
@@ -199,12 +199,8 @@ router.get("/me", requireAuth, async (req, res) => {
   sendSuccess(res, rowToUser(user));
 });
 
-router.post("/magic-link", magicLinkLimiter, async (req, res) => {
-  const { email } = req.body as { email?: string };
-  if (!email) {
-    sendError(res, 400, "VALIDATION_ERROR", "Email is required");
-    return;
-  }
+router.post("/magic-link", magicLinkLimiter, validateBody(emailOnlySchema), async (req, res) => {
+  const { email } = req.body as z.infer<typeof emailOnlySchema>;
 
   const user = await findUserByEmail(email);
   if (user && user.status === "active") {
@@ -222,12 +218,8 @@ router.post("/magic-link", magicLinkLimiter, async (req, res) => {
   sendSuccess(res, { message: "Magic link sent to email" });
 });
 
-router.post("/magic-link/verify", verifyLimiter, async (req, res) => {
-  const { token } = req.body as { token?: string };
-  if (!token) {
-    sendError(res, 400, "VALIDATION_ERROR", "Token is required");
-    return;
-  }
+router.post("/magic-link/verify", verifyLimiter, validateBody(tokenOnlySchema), async (req, res) => {
+  const { token } = req.body as z.infer<typeof tokenOnlySchema>;
 
   const userId = await consumeMagicLinkToken(token);
   if (!userId) {
@@ -244,12 +236,8 @@ router.post("/magic-link/verify", verifyLimiter, async (req, res) => {
   sendSuccess(res, result);
 });
 
-router.post("/forgot-password", magicLinkLimiter, async (req, res) => {
-  const { email } = req.body as { email?: string };
-  if (!email) {
-    sendError(res, 400, "VALIDATION_ERROR", "Email is required");
-    return;
-  }
+router.post("/forgot-password", magicLinkLimiter, validateBody(emailOnlySchema), async (req, res) => {
+  const { email } = req.body as z.infer<typeof emailOnlySchema>;
 
   const user = await findUserByEmail(email);
   if (user && user.status === "active") {
@@ -268,13 +256,8 @@ router.post("/forgot-password", magicLinkLimiter, async (req, res) => {
   sendSuccess(res, { message: "If that email exists, a reset link has been sent" });
 });
 
-router.post("/reset-password", verifyLimiter, async (req, res) => {
-  const { token, password } = req.body as { token?: string; password?: string };
-
-  if (!token || !password) {
-    sendError(res, 400, "VALIDATION_ERROR", "Token and password are required");
-    return;
-  }
+router.post("/reset-password", verifyLimiter, validateBody(resetPasswordSchema), async (req, res) => {
+  const { token, password } = req.body as z.infer<typeof resetPasswordSchema>;
 
   if (password.length < 8) {
     sendError(res, 400, "WEAK_PASSWORD", "Password must be at least 8 characters");
@@ -305,12 +288,8 @@ router.get("/qr-token", requireAuth, requireRole("staff"), async (req, res) => {
   sendSuccess(res, { qrToken, expiresAt, loginUrl });
 });
 
-router.post("/qr-login/verify", verifyLimiter, async (req, res) => {
-  const { token } = req.body as { token?: string };
-  if (!token) {
-    sendError(res, 400, "VALIDATION_ERROR", "Token is required");
-    return;
-  }
+router.post("/qr-login/verify", verifyLimiter, validateBody(tokenOnlySchema), async (req, res) => {
+  const { token } = req.body as z.infer<typeof tokenOnlySchema>;
 
   const userId = await consumeQrLoginToken(token);
   if (!userId) {

@@ -3,23 +3,23 @@ import { v4 as uuidv4 } from "uuid";
 import { createFacility, findAllFacilitiesByAdmin, findFacilityById } from "../db/facilities";
 import { setUserFacilityId } from "../db/users";
 import { requireAuth, requireRole } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { emailSchema, nonEmptyString } from "../schemas";
+import { z } from "zod";
 import { sendError, sendSuccess } from "../utils/response";
 
 const router = Router();
 
-// 2.1 Create Facility (admin only)
-router.post("/", requireAuth, requireRole("admin"), async (req, res) => {
-  const { name, address, contactEmail, contactPhone } = req.body as {
-    name?: string;
-    address?: string;
-    contactEmail?: string;
-    contactPhone?: string;
-  };
+const createFacilitySchema = z.object({
+  name: nonEmptyString,
+  address: nonEmptyString,
+  contactEmail: emailSchema,
+  contactPhone: nonEmptyString,
+});
 
-  if (!name || !address || !contactEmail || !contactPhone) {
-    sendError(res, 400, "VALIDATION_ERROR", "name, address, contactEmail, and contactPhone are required");
-    return;
-  }
+// 2.1 Create Facility (admin only)
+router.post("/", requireAuth, requireRole("admin"), validateBody(createFacilitySchema), async (req, res) => {
+  const { name, address, contactEmail, contactPhone } = req.body as z.infer<typeof createFacilitySchema>;
 
   const facilityId = `fac_${uuidv4().slice(0, 8)}`;
   const facility = await createFacility({

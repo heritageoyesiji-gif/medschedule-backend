@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { requireAuth, requireFacilityAccess, requireRole } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { z } from "zod";
 import { sendError, sendSuccess } from "../utils/response";
 import {
   EMPLOYMENT_TYPES,
@@ -12,6 +14,10 @@ import type { EmploymentType } from "../types";
 const router = Router();
 
 const VALID_EMPLOYMENT_TYPES = new Set<string>(EMPLOYMENT_TYPES);
+
+const overtimeConfigBodySchema = z.object({
+  biweeklyHours: z.number().positive().max(336).nullable().optional(),
+});
 
 // GET /api/facilities/:facilityId/overtime-config
 router.get("/facilities/:facilityId/overtime-config", requireAuth, requireRole("admin"), requireFacilityAccess, async (req, res) => {
@@ -26,6 +32,7 @@ router.put(
   requireAuth,
   requireRole("admin"),
   requireFacilityAccess,
+  validateBody(overtimeConfigBodySchema),
   async (req, res) => {
     const { facilityId, employmentType } = req.params as { facilityId: string; employmentType: string };
 
@@ -34,15 +41,7 @@ router.put(
       return;
     }
 
-    const { biweeklyHours } = req.body as { biweeklyHours?: number | null };
-
-    // null is a valid, explicit value meaning "no OT threshold"
-    if (biweeklyHours !== null && biweeklyHours !== undefined) {
-      if (typeof biweeklyHours !== "number" || !Number.isFinite(biweeklyHours) || biweeklyHours <= 0 || biweeklyHours > 336) {
-        sendError(res, 400, "VALIDATION_ERROR", "biweeklyHours must be a positive number up to 336, or null for no limit");
-        return;
-      }
-    }
+    const { biweeklyHours } = req.body as z.infer<typeof overtimeConfigBodySchema>;
 
     const config = await upsertOvertimeConfig(
       facilityId,

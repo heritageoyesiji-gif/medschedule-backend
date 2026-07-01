@@ -4,12 +4,23 @@ import {
   replaceRequirements,
 } from "../db/requirements";
 import { requireAuth, requireFacilityAccess, requireRole } from "../middleware/auth";
-import { sendError, sendSuccess } from "../utils/response";
+import { validateBody } from "../middleware/validate";
+import { nonEmptyString, staffRoleTypeSchema } from "../schemas";
+import { z } from "zod";
+import { sendSuccess } from "../utils/response";
 
 const router = Router();
 
-const VALID_SHIFT_TYPES = new Set(["day", "evening", "night"]);
-const VALID_ROLES = new Set(["RN", "PSW", "LPN", "doctor", "technician"]);
+const requirementsSchema = z.object({
+  requirements: z.array(
+    z.object({
+      unit: nonEmptyString,
+      shiftType: z.enum(["day", "evening", "night"]),
+      requiredRole: staffRoleTypeSchema,
+      minCount: z.number().int().min(0),
+    }),
+  ),
+});
 
 // GET /facilities/:facilityId/requirements
 router.get(
@@ -30,54 +41,12 @@ router.put(
   requireAuth,
   requireRole("admin"),
   requireFacilityAccess,
+  validateBody(requirementsSchema),
   async (req, res) => {
     const { facilityId } = req.params as { facilityId: string };
-    const { requirements } = req.body as {
-      requirements?: Array<{
-        unit?: string;
-        shiftType?: string;
-        requiredRole?: string;
-        minCount?: number;
-      }>;
-    };
+    const { requirements } = req.body as z.infer<typeof requirementsSchema>;
 
-    if (!Array.isArray(requirements)) {
-      sendError(res, 400, "VALIDATION_ERROR", "requirements must be an array");
-      return;
-    }
-
-    for (const r of requirements) {
-      if (!r.unit || typeof r.unit !== "string") {
-        sendError(res, 400, "VALIDATION_ERROR", "Each requirement must have a unit");
-        return;
-      }
-      if (!r.shiftType || !VALID_SHIFT_TYPES.has(r.shiftType)) {
-        sendError(res, 400, "VALIDATION_ERROR", `Invalid shiftType: ${String(r.shiftType)}`);
-        return;
-      }
-      if (!r.requiredRole || !VALID_ROLES.has(r.requiredRole)) {
-        sendError(res, 400, "VALIDATION_ERROR", `Invalid requiredRole: ${String(r.requiredRole)}`);
-        return;
-      }
-      if (
-        typeof r.minCount !== "number" ||
-        r.minCount < 0 ||
-        !Number.isInteger(r.minCount)
-      ) {
-        sendError(res, 400, "VALIDATION_ERROR", "minCount must be a non-negative integer");
-        return;
-      }
-    }
-
-    const saved = await replaceRequirements(
-      facilityId,
-      requirements as Array<{
-        unit: string;
-        shiftType: string;
-        requiredRole: string;
-        minCount: number;
-      }>,
-    );
+    const saved = await replaceRequirements(facilityId, requirements);
 
     sendSuccess(res, { requirements: saved, total: saved.length });
   },

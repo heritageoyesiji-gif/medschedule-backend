@@ -10,25 +10,30 @@ import {
 import { findStaffById } from "../db/staff";
 import { createNotification } from "../db/notifications";
 import { requireAuth, requireFacilityAccess, requireRole } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { dateSchema, nonEmptyString } from "../schemas";
+import { z } from "zod";
 import { emitToUser } from "../socket";
 import { sendError, sendSuccess } from "../utils/response";
 import type { RequestStatus } from "../types";
 
 const router = Router();
 
-// 7.1 Submit Time Off Request (staff)
-router.post("/time-off", requireAuth, requireRole("staff"), async (req, res) => {
-  const { staffId, startDate, endDate, reason } = req.body as {
-    staffId?: string;
-    startDate?: string;
-    endDate?: string;
-    reason?: string;
-  };
+const createTimeOffSchema = z.object({
+  staffId: nonEmptyString,
+  startDate: dateSchema,
+  endDate: dateSchema,
+  reason: nonEmptyString,
+});
 
-  if (!staffId || !startDate || !endDate || !reason) {
-    sendError(res, 400, "VALIDATION_ERROR", "staffId, startDate, endDate, and reason are required");
-    return;
-  }
+const respondTimeOffSchema = z.object({
+  status: z.enum(["approved", "rejected"]),
+  adminNote: z.string().optional(),
+});
+
+// 7.1 Submit Time Off Request (staff)
+router.post("/time-off", requireAuth, requireRole("staff"), validateBody(createTimeOffSchema), async (req, res) => {
+  const { staffId, startDate, endDate, reason } = req.body as z.infer<typeof createTimeOffSchema>;
 
   if (req.auth!.userId !== staffId) {
     sendError(res, 403, "FORBIDDEN", "You can only submit time-off requests for yourself");
@@ -119,17 +124,9 @@ router.get("/facilities/:facilityId/time-off", requireAuth, requireRole("admin")
 });
 
 // 7.4 Respond to Time Off Request (admin)
-router.patch("/time-off/:requestId", requireAuth, requireRole("admin"), async (req, res) => {
+router.patch("/time-off/:requestId", requireAuth, requireRole("admin"), validateBody(respondTimeOffSchema), async (req, res) => {
   const { requestId } = req.params as { requestId: string };
-  const { status, adminNote } = req.body as {
-    status?: "approved" | "rejected";
-    adminNote?: string;
-  };
-
-  if (!status || !["approved", "rejected"].includes(status)) {
-    sendError(res, 400, "VALIDATION_ERROR", "status must be 'approved' or 'rejected'");
-    return;
-  }
+  const { status, adminNote } = req.body as z.infer<typeof respondTimeOffSchema>;
 
   const existing = await findTimeOffById(requestId);
   if (!existing) {

@@ -4,24 +4,24 @@ import { createAnnouncement, findAnnouncementsByFacility } from "../db/announcem
 import { findStaffByFacility } from "../db/staff";
 import { createNotificationsForUsers } from "../db/notifications";
 import { callerCanAccessFacility, requireAuth, requireFacilityAccess, requireRole } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { nonEmptyString } from "../schemas";
+import { z } from "zod";
 import { emitToFacility } from "../socket";
 import { sendError, sendSuccess } from "../utils/response";
 
 const router = Router();
 
-// 9.1 Create Announcement (admin)
-router.post("/announcements", requireAuth, requireRole("admin"), async (req, res) => {
-  const { facilityId, title, body, priority } = req.body as {
-    facilityId?: string;
-    title?: string;
-    body?: string;
-    priority?: "normal" | "urgent";
-  };
+const createAnnouncementSchema = z.object({
+  facilityId: nonEmptyString,
+  title: nonEmptyString,
+  body: nonEmptyString,
+  priority: z.enum(["normal", "urgent"]).optional(),
+});
 
-  if (!facilityId || !title || !body) {
-    sendError(res, 400, "VALIDATION_ERROR", "facilityId, title, and body are required");
-    return;
-  }
+// 9.1 Create Announcement (admin)
+router.post("/announcements", requireAuth, requireRole("admin"), validateBody(createAnnouncementSchema), async (req, res) => {
+  const { facilityId, title, body, priority } = req.body as z.infer<typeof createAnnouncementSchema>;
 
   if (!(await callerCanAccessFacility(req.auth!, facilityId))) {
     sendError(res, 403, "FORBIDDEN", "You do not have access to this facility");

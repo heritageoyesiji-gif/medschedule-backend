@@ -13,11 +13,24 @@ import { findStaffByFacility } from "../db/staff";
 import { findRequirementsByFacility } from "../db/requirements";
 import { config } from "../config";
 import { callerCanAccessFacility, requireAuth, requireRole } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { monthSchema, nonEmptyString } from "../schemas";
+import { z } from "zod";
 import { sendError, sendSuccess } from "../utils/response";
 import type { ShiftRecord, AIPreviewShift } from "../db/store";
 import type { ShiftType } from "../types";
 
 const router = Router();
+
+const generateScheduleSchema = z.object({
+  facilityId: nonEmptyString,
+  month: monthSchema,
+  command: nonEmptyString,
+});
+const confirmScheduleSchema = z.object({
+  facilityId: nonEmptyString,
+  month: monthSchema,
+});
 
 const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -106,17 +119,8 @@ Call the submit_schedule tool with your result.`;
 }
 
 // 5.1 Generate AI Schedule Preview
-router.post("/ai/generate-schedule", requireAuth, requireRole("admin"), async (req, res) => {
-  const { facilityId, month, command } = req.body as {
-    facilityId?: string;
-    month?: string;
-    command?: string;
-  };
-
-  if (!facilityId || !month || !command) {
-    sendError(res, 400, "VALIDATION_ERROR", "facilityId, month, and command are required");
-    return;
-  }
+router.post("/ai/generate-schedule", requireAuth, requireRole("admin"), validateBody(generateScheduleSchema), async (req, res) => {
+  const { facilityId, month, command } = req.body as z.infer<typeof generateScheduleSchema>;
 
   if (!(await callerCanAccessFacility(req.auth!, facilityId))) {
     sendError(res, 403, "FORBIDDEN", "You do not have access to this facility");
@@ -256,13 +260,8 @@ router.post("/ai/generate-schedule", requireAuth, requireRole("admin"), async (r
 });
 
 // 5.2 Confirm AI-Generated Schedule
-router.post("/ai/generate-schedule/confirm", requireAuth, requireRole("admin"), async (req, res) => {
-  const { facilityId, month } = req.body as { facilityId?: string; month?: string };
-
-  if (!facilityId || !month) {
-    sendError(res, 400, "VALIDATION_ERROR", "facilityId and month are required");
-    return;
-  }
+router.post("/ai/generate-schedule/confirm", requireAuth, requireRole("admin"), validateBody(confirmScheduleSchema), async (req, res) => {
+  const { facilityId, month } = req.body as z.infer<typeof confirmScheduleSchema>;
 
   if (!(await callerCanAccessFacility(req.auth!, facilityId))) {
     sendError(res, 403, "FORBIDDEN", "You do not have access to this facility");

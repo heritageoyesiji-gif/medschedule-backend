@@ -5,26 +5,32 @@ import { findShiftById, updateShift } from "../db/shifts";
 import { findStaffById } from "../db/staff";
 import { createNotification } from "../db/notifications";
 import { requireAuth, requireFacilityAccess, requireRole } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { nonEmptyString } from "../schemas";
+import { z } from "zod";
 import { emitToUser } from "../socket";
 import { sendError, sendSuccess } from "../utils/response";
 import type { RequestStatus } from "../types";
 
 const router = Router();
 
-// 6.1 Submit Swap Request (staff)
-router.post("/swap-requests", requireAuth, requireRole("staff"), async (req, res) => {
-  const { requesterId, targetStaffId, requesterShiftId, targetShiftId, note } = req.body as {
-    requesterId?: string;
-    targetStaffId?: string;
-    requesterShiftId?: string;
-    targetShiftId?: string;
-    note?: string;
-  };
+const createSwapSchema = z.object({
+  requesterId: nonEmptyString,
+  targetStaffId: nonEmptyString,
+  requesterShiftId: nonEmptyString,
+  targetShiftId: nonEmptyString,
+  note: z.string().optional(),
+});
 
-  if (!requesterId || !targetStaffId || !requesterShiftId || !targetShiftId) {
-    sendError(res, 400, "VALIDATION_ERROR", "requesterId, targetStaffId, requesterShiftId, targetShiftId are required");
-    return;
-  }
+const respondSwapSchema = z.object({
+  status: z.enum(["approved", "rejected"]),
+  adminNote: z.string().optional(),
+});
+
+// 6.1 Submit Swap Request (staff)
+router.post("/swap-requests", requireAuth, requireRole("staff"), validateBody(createSwapSchema), async (req, res) => {
+  const { requesterId, targetStaffId, requesterShiftId, targetShiftId, note } =
+    req.body as z.infer<typeof createSwapSchema>;
 
   if (req.auth!.userId !== requesterId) {
     sendError(res, 403, "FORBIDDEN", "You can only submit swap requests for yourself");
@@ -106,17 +112,9 @@ router.get("/facilities/:facilityId/swap-requests", requireAuth, requireRole("ad
 });
 
 // 6.3 Respond to Swap Request (admin)
-router.patch("/swap-requests/:swapRequestId", requireAuth, requireRole("admin"), async (req, res) => {
+router.patch("/swap-requests/:swapRequestId", requireAuth, requireRole("admin"), validateBody(respondSwapSchema), async (req, res) => {
   const { swapRequestId } = req.params as { swapRequestId: string };
-  const { status, adminNote } = req.body as {
-    status?: "approved" | "rejected";
-    adminNote?: string;
-  };
-
-  if (!status || !["approved", "rejected"].includes(status)) {
-    sendError(res, 400, "VALIDATION_ERROR", "status must be 'approved' or 'rejected'");
-    return;
-  }
+  const { status, adminNote } = req.body as z.infer<typeof respondSwapSchema>;
 
   const existing = await findSwapById(swapRequestId);
   if (!existing) {

@@ -16,12 +16,34 @@ import {
 } from "../db/shifts";
 import { findStaffById } from "../db/staff";
 import { createNotificationsForUsers } from "../db/notifications";
-import { requireAuth, requireFacilityAccess, requireRole } from "../middleware/auth";
+import { callerCanAccessFacility, requireAuth, requireFacilityAccess, requireRole } from "../middleware/auth";
+import { validateBody } from "../middleware/validate";
+import { dateSchema, monthSchema, nonEmptyString, shiftTypeSchema, timeSchema } from "../schemas";
+import { z } from "zod";
 import { emitToFacility, emitToUser } from "../socket";
 import { sendError, sendSuccess } from "../utils/response";
-import type { ShiftType } from "../types";
 
 const router = Router();
+
+const createShiftSchema = z.object({
+  facilityId: nonEmptyString,
+  staffId: nonEmptyString,
+  date: dateSchema,
+  type: shiftTypeSchema,
+  unit: nonEmptyString,
+  startTime: timeSchema.optional(),
+  endTime: timeSchema.optional(),
+});
+
+const updateShiftSchema = z.object({
+  date: dateSchema.optional(),
+  type: shiftTypeSchema.optional(),
+  staffId: nonEmptyString.optional(),
+  unit: nonEmptyString.optional(),
+});
+
+const publishSchema = z.object({ month: monthSchema });
+const copyForwardSchema = z.object({ sourceMonth: monthSchema, targetMonth: monthSchema });
 
 // 4.1 Get Staff Personal Schedule
 router.get("/shifts", requireAuth, requireRole("staff"), async (req, res) => {
@@ -98,19 +120,12 @@ router.get("/facilities/:facilityId/schedule", requireAuth, requireRole("admin")
 });
 
 // 4.3 Create Single Shift (admin)
-router.post("/shifts", requireAuth, requireRole("admin"), async (req, res) => {
-  const { facilityId, staffId, date, type, unit, startTime, endTime } = req.body as {
-    facilityId?: string;
-    staffId?: string;
-    date?: string;
-    type?: ShiftType;
-    unit?: string;
-    startTime?: string;
-    endTime?: string;
-  };
+router.post("/shifts", requireAuth, requireRole("admin"), validateBody(createShiftSchema), async (req, res) => {
+  const { facilityId, staffId, date, type, unit, startTime, endTime } =
+    req.body as z.infer<typeof createShiftSchema>;
 
-  if (!facilityId || !staffId || !date || !type || !unit) {
-    sendError(res, 400, "VALIDATION_ERROR", "facilityId, staffId, date, type, and unit are required");
+  if (!(await callerCanAccessFacility(req.auth!, facilityId))) {
+    sendError(res, 403, "FORBIDDEN", "You do not have access to this facility");
     return;
   }
 
@@ -155,14 +170,9 @@ router.post("/shifts", requireAuth, requireRole("admin"), async (req, res) => {
 });
 
 // 4.4 Update Shift (admin)
-router.patch("/shifts/:shiftId", requireAuth, requireRole("admin"), async (req, res) => {
+router.patch("/shifts/:shiftId", requireAuth, requireRole("admin"), validateBody(updateShiftSchema), async (req, res) => {
   const { shiftId } = req.params as { shiftId: string };
-  const { date, type, staffId, unit } = req.body as {
-    date?: string;
-    type?: ShiftType;
-    staffId?: string;
-    unit?: string;
-  };
+  const { date, type, staffId, unit } = req.body as z.infer<typeof updateShiftSchema>;
 
   const existing = await findShiftById(shiftId);
   if (!existing) {
@@ -216,14 +226,9 @@ router.delete("/shifts/:shiftId", requireAuth, requireRole("admin"), async (req,
 });
 
 // 4.6 Publish Schedule (admin)
-router.post("/facilities/:facilityId/schedule/publish", requireAuth, requireRole("admin"), requireFacilityAccess, async (req, res) => {
+router.post("/facilities/:facilityId/schedule/publish", requireAuth, requireRole("admin"), requireFacilityAccess, validateBody(publishSchema), async (req, res) => {
   const { facilityId } = req.params as { facilityId: string };
-  const { month } = req.body as { month?: string };
-
-  if (!month) {
-    sendError(res, 400, "VALIDATION_ERROR", "month is required");
-    return;
-  }
+  const { month } = req.body as z.infer<typeof publishSchema>;
 
   const result = await publishSchedule(facilityId, month);
 
@@ -256,14 +261,9 @@ router.post("/facilities/:facilityId/schedule/publish", requireAuth, requireRole
 });
 
 // 4.7 Copy schedule from a previous month (admin)
-router.post("/facilities/:facilityId/schedule/copy-forward", requireAuth, requireRole("admin"), requireFacilityAccess, async (req, res) => {
+router.post("/facilities/:facilityId/schedule/copy-forward", requireAuth, requireRole("admin"), requireFacilityAccess, validateBody(copyForwardSchema), async (req, res) => {
   const { facilityId } = req.params as { facilityId: string };
-  const { sourceMonth, targetMonth } = req.body as { sourceMonth?: string; targetMonth?: string };
-
-  if (!sourceMonth || !targetMonth) {
-    sendError(res, 400, "VALIDATION_ERROR", "sourceMonth and targetMonth are required");
-    return;
-  }
+  const { sourceMonth, targetMonth } = req.body as z.infer<typeof copyForwardSchema>;
 
   if (sourceMonth === targetMonth) {
     sendError(res, 400, "VALIDATION_ERROR", "Source and target months must be different");
