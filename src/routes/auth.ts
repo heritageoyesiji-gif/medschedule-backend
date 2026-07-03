@@ -44,6 +44,10 @@ const loginSchema = z.object({ email: nonEmptyString, password: z.string().min(1
 const emailOnlySchema = z.object({ email: emailSchema });
 const tokenOnlySchema = z.object({ token: nonEmptyString });
 const resetPasswordSchema = z.object({ token: nonEmptyString, password: z.string().min(1) });
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(1),
+});
 
 function signJwt(userId: string, role: UserRole): string {
   return jwt.sign({ userId, role }, config.jwtSecret, {
@@ -272,6 +276,38 @@ router.post("/reset-password", verifyLimiter, validateBody(resetPasswordSchema),
 
   const passwordHash = await bcrypt.hash(password, 10);
   await updateUserPassword(userId, passwordHash);
+
+  sendSuccess(res, { message: "Password updated successfully" });
+});
+
+// Change password for the logged-in user (any role) — verifies current password first.
+router.post("/change-password", requireAuth, validateBody(changePasswordSchema), async (req, res) => {
+  const { currentPassword, newPassword } = req.body as z.infer<typeof changePasswordSchema>;
+
+  if (newPassword.length < 8) {
+    sendError(res, 400, "WEAK_PASSWORD", "New password must be at least 8 characters");
+    return;
+  }
+
+  const user = await findUserById(req.auth!.userId);
+  if (!user) {
+    sendError(res, 401, "UNAUTHORIZED", "User not found");
+    return;
+  }
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) {
+    sendError(res, 401, "INVALID_CREDENTIALS", "Current password is incorrect");
+    return;
+  }
+
+  if (currentPassword === newPassword) {
+    sendError(res, 400, "SAME_PASSWORD", "New password must be different from the current one");
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await updateUserPassword(user.userId, passwordHash);
 
   sendSuccess(res, { message: "Password updated successfully" });
 });
