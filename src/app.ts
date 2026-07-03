@@ -17,6 +17,9 @@ import superRouter from "./routes/super";
 import shiftConfigRouter from "./routes/shiftConfig";
 import overtimeConfigRouter from "./routes/overtimeConfig";
 
+// Captured once at process start, so /api/version reflects the running deploy.
+const STARTED_AT = new Date().toISOString();
+
 export function createApp() {
   const app = express();
 
@@ -40,6 +43,23 @@ export function createApp() {
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true });
+  });
+
+  // Reports what is actually running, so a stale/frozen deploy is obvious at a glance.
+  // Railway injects RAILWAY_GIT_COMMIT_SHA at runtime; falls back to other common vars.
+  app.get("/api/version", (_req, res) => {
+    const sha =
+      process.env.RAILWAY_GIT_COMMIT_SHA ??
+      process.env.GIT_COMMIT_SHA ??
+      process.env.SOURCE_VERSION ??
+      null;
+    res.json({
+      commit: sha,
+      commitShort: sha ? sha.slice(0, 7) : null,
+      branch: process.env.RAILWAY_GIT_BRANCH ?? null,
+      deploymentId: process.env.RAILWAY_DEPLOYMENT_ID ?? null,
+      startedAt: STARTED_AT,
+    });
   });
 
   app.use("/api/auth", authRouter);
