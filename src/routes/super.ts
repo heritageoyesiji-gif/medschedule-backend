@@ -5,7 +5,10 @@ import { sendError, sendSuccess } from "../utils/response";
 
 const router = Router();
 
-router.use(requireAuth, requireRole("superadmin"));
+// Scope the superadmin guard to /super paths only. Without the path, this router
+// (mounted at /api) would run requireAuth/requireRole on every unmatched /api
+// request, turning would-be 404s into misleading 401/403 responses.
+router.use("/super", requireAuth, requireRole("superadmin"));
 
 // Platform-wide stats
 router.get("/super/stats", async (_req, res) => {

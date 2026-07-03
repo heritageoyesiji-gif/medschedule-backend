@@ -24,8 +24,9 @@ COPY package*.json ./
 
 EXPOSE 5000
 
-# Apply pending migrations then start server.
-# The production DB was baselined with `prisma migrate resolve --applied 0_init`,
-# so migrate deploy applies only new migrations and never recreates existing tables.
-# A destructive/failed migration aborts the deploy instead of dropping data.
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+# Sync schema then start server.
+# NOTE: `migrate deploy` was failing on this platform and froze deploys, so we use
+# `db push` (no --accept-data-loss, so a destructive change fails rather than drops
+# data). It's idempotent and matches the last known-good deployment. The migrations/
+# baseline is kept for a future retry of the migrate-deploy workflow.
+CMD ["sh", "-c", "npx prisma db push && node dist/index.js"]
