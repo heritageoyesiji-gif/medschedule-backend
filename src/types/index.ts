@@ -6,7 +6,8 @@ export type EmploymentType =
   | "fulltime-temporary"
   | "parttime-permanent"
   | "parttime-temporary"
-  | "casual";
+  | "casual"
+  | "travel";
 export type RequestStatus = "pending" | "approved" | "rejected";
 export type ShiftStatus = "confirmed" | "pending" | "cancelled";
 export type NotificationType =
@@ -52,6 +53,8 @@ export type StaffProfile = {
   availability: Record<string, ShiftType[]>;
   maxHoursPerWeek: number;
   status: "active" | "inactive";
+  phone: string;
+  notes: string;
 };
 
 export type Shift = {

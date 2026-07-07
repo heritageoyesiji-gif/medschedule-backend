@@ -33,23 +33,27 @@ const createStaffSchema = z.object({
   firstName: nonEmptyString,
   lastName: nonEmptyString,
   email: emailSchema,
+  phone: z.string().optional(),
   roleType: staffRoleTypeSchema.optional(),
   unit: z.string().optional(),
   qualifications: z.array(z.string()).optional(),
   employmentType: employmentTypeSchema.optional(),
   availability: availabilitySchema.optional(),
   maxHoursPerWeek: maxHoursSchema.optional(),
+  notes: z.string().optional(),
 });
 
 const updateStaffSchema = z.object({
   firstName: nonEmptyString.optional(),
   lastName: nonEmptyString.optional(),
+  phone: z.string().optional(),
   roleType: staffRoleTypeSchema.optional(),
   unit: z.string().optional(),
   qualifications: z.array(z.string()).optional(),
   employmentType: employmentTypeSchema.optional(),
   availability: availabilitySchema.optional(),
   maxHoursPerWeek: maxHoursSchema.optional(),
+  notes: z.string().optional(),
 });
 
 const availabilityBodySchema = z.object({ availability: availabilitySchema });
@@ -107,12 +111,14 @@ router.post("/facilities/:facilityId/staff", requireAuth, requireRole("admin"), 
     firstName,
     lastName,
     email,
+    phone,
     roleType,
     unit,
     qualifications,
     employmentType,
     availability,
     maxHoursPerWeek,
+    notes,
   } = req.body as z.infer<typeof createStaffSchema>;
 
   const userId = `usr_${uuidv4().slice(0, 8)}`;
@@ -122,12 +128,14 @@ router.post("/facilities/:facilityId/staff", requireAuth, requireRole("admin"), 
     firstName,
     lastName,
     email,
+    phone,
     roleType,
     unit,
     qualifications,
     employmentType,
     availability,
     maxHoursPerWeek,
+    notes,
   });
 
   sendSuccess(res, profile, 201);
@@ -139,23 +147,27 @@ router.patch("/staff/:staffId", requireAuth, requireRole("admin"), validateBody(
   const {
     firstName,
     lastName,
+    phone,
     roleType,
     unit,
     qualifications,
     employmentType,
     availability,
     maxHoursPerWeek,
+    notes,
   } = req.body as z.infer<typeof updateStaffSchema>;
 
   const updated = await updateStaffProfile(staffId, {
     ...(firstName !== undefined && { firstName }),
     ...(lastName !== undefined && { lastName }),
+    ...(phone !== undefined && { phone }),
     ...(roleType !== undefined && { roleType }),
     ...(unit !== undefined && { unit }),
     ...(qualifications !== undefined && { qualifications }),
     ...(employmentType !== undefined && { employmentType }),
     ...(availability !== undefined && { availability }),
     ...(maxHoursPerWeek !== undefined && { maxHoursPerWeek }),
+    ...(notes !== undefined && { notes }),
   });
 
   if (!updated) {

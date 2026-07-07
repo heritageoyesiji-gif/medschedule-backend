@@ -23,6 +23,8 @@ export async function createStaffProfile(input: {
   employmentType?: EmploymentType;
   availability?: Record<string, ShiftType[]>;
   maxHoursPerWeek?: number;
+  phone?: string;
+  notes?: string;
 }): Promise<StaffProfileRecord> {
   const row = await prisma.staffProfile.create({
     data: {
@@ -38,6 +40,8 @@ export async function createStaffProfile(input: {
       availability: input.availability ?? {},
       maxHoursPerWeek: input.maxHoursPerWeek ?? 40,
       status: "active",
+      phone: input.phone ?? "",
+      notes: input.notes ?? "",
     },
   });
   return toRecord(row);

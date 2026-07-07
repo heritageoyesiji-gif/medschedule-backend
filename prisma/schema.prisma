@@ -44,6 +44,8 @@ model StaffProfile {
   availability    Json
   maxHoursPerWeek Int    @default(40)
   status          String @default("active")
+  phone           String @default("")
+  notes           String @default("")
 
   @@index([facilityId])
 }

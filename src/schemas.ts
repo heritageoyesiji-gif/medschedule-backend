@@ -12,6 +12,7 @@ export const employmentTypeSchema = z.enum([
   "parttime-permanent",
   "parttime-temporary",
   "casual",
+  "travel",
 ]);
 
 export const userRoleSchema = z.enum(["admin", "staff", "superadmin"]);

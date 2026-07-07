@@ -53,6 +53,8 @@ export type StaffProfileRecord = {
   availability: Record<string, ShiftType[]>;
   maxHoursPerWeek: number;
   status: "active" | "inactive";
+  phone: string;
+  notes: string;
 };
 
 export type ShiftRecord = {
