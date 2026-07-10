@@ -13,6 +13,7 @@ export const OVERTIME_DEFAULTS: OvertimeConfig[] = [
   { employmentType: "parttime-permanent", biweeklyHours: 60 },
   { employmentType: "parttime-temporary", biweeklyHours: 60 },
   { employmentType: "casual",             biweeklyHours: null },
+  { employmentType: "travel",             biweeklyHours: 80 },
 ];
 
 export const EMPLOYMENT_TYPES = OVERTIME_DEFAULTS.map((d) => d.employmentType);
